@@ -1,0 +1,33 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always
+spring:
+  application:
+    name: sys-kilo-doc-aggregator
+  data:
+    cassandra:
+      local-datacenter: datacenter1
+      port: 9042
+      contact-points: localhost
+      keyspace-name: examplesys
+logging:
+  file:
+    path: .
+    name: spring-boot.log
+  level:
+    org:
+      springframework:
+        web: DEBUG
+server:
+  port: ${PORT:8080}
+kafka:
+  bootstrap-servers: localhost:9092
+  producer:
+    client-id: ${spring.application.name}
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.apache.kafka.common.serialization.StringSerializer
