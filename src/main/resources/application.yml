@@ -25,9 +25,14 @@ logging:
         web: DEBUG
 server:
   port: ${PORT:8080}
-kafka:
-  bootstrap-servers: localhost:9092
-  producer:
-    client-id: ${spring.application.name}
-    key-serializer: org.apache.kafka.common.serialization.StringSerializer
-    value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  kafka:
+    consumer:
+      auto-offset-reset: latest
+      bootstrap-servers: localhost:9092
+      group-id: ${spring.application.name}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+topic:
+  name:
+    consumer: doc
+
