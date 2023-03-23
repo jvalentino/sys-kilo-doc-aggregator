@@ -1,6 +1,7 @@
 package com.github.jvalentino.kilo.service
 
 import com.github.jvalentino.kilo.dto.DocDto
+import com.github.jvalentino.kilo.dto.DocPair
 import com.github.jvalentino.kilo.entity.DocTable
 import com.github.jvalentino.kilo.entity.DocVersionTable
 import com.github.jvalentino.kilo.repo.DocRepo
@@ -29,7 +30,9 @@ class DocService {
     @Autowired
     DocVersionRepo docVersionRepo
 
-    void process(DocDto event) {
+    DocPair process(DocDto event) {
+        DocPair result = new DocPair()
+
         Optional<DocTable> optional = docRepo.findById(UUID.fromString(event.docId))
         DocTable doc = null
 
@@ -56,6 +59,7 @@ class DocService {
             }
         }
 
+        result.docTable = doc
         docRepo.save(doc)
 
         // always a new version
@@ -70,7 +74,10 @@ class DocService {
             data = ByteBuffer.wrap(event.base64.decodeBase64())
         }
 
+        result.docVersionTable = version
         docVersionRepo.save(version)
+
+        result
     }
 
 }
