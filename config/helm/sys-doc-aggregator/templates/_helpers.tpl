@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "sys-doc-rest.name" -}}
+{{- define "sys-doc-aggregator.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "sys-doc-rest.fullname" -}}
+{{- define "sys-doc-aggregator.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "sys-doc-rest.chart" -}}
+{{- define "sys-doc-aggregator.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "sys-doc-rest.labels" -}}
-helm.sh/chart: {{ include "sys-doc-rest.chart" . }}
-{{ include "sys-doc-rest.selectorLabels" . }}
+{{- define "sys-doc-aggregator.labels" -}}
+helm.sh/chart: {{ include "sys-doc-aggregator.chart" . }}
+{{ include "sys-doc-aggregator.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "sys-doc-rest.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "sys-doc-rest.name" . }}
+{{- define "sys-doc-aggregator.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "sys-doc-aggregator.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "sys-doc-rest.serviceAccountName" -}}
+{{- define "sys-doc-aggregator.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "sys-doc-rest.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "sys-doc-aggregator.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

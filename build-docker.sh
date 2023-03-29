@@ -1,10 +1,10 @@
 #!/bin/bash
 
-NAME=sys-kilo-doc-rest
+NAME=sys-kilo-doc-aggregator
 VERSION=latest
-HELM_NAME=sys-doc-rest
+HELM_NAME=sys-doc-aggregator
 
-helm delete $HELM_NAME || true
+helm delete --wait $HELM_NAME || true
 minikube image rm $NAME:$VERSION
 rm -rf ~/.minikube/cache/images/arm64/$NAME_$VERSION || true
 docker build --no-cache . -t $NAME

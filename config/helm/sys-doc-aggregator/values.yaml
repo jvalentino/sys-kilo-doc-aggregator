@@ -1,11 +1,11 @@
-# Default values for sys-doc-rest.
+# Default values for sys-doc-aggregator.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: sys-kilo-doc-rest
+  repository: sys-kilo-doc-aggregator
   pullPolicy: Never
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
@@ -38,7 +38,7 @@ securityContext: {}
 
 service:
   type: ClusterIP
-  port: 80
+  port: 8080
 
 ingress:
   enabled: false

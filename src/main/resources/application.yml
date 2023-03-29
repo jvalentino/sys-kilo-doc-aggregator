@@ -9,6 +9,13 @@ management:
 spring:
   application:
     name: sys-kilo-doc-aggregator
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: latest
+      group-id: ${spring.application.name}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
   data:
     cassandra:
       local-datacenter: datacenter1
@@ -25,13 +32,6 @@ logging:
         web: DEBUG
 server:
   port: ${PORT:8080}
-  kafka:
-    consumer:
-      auto-offset-reset: latest
-      bootstrap-servers: localhost:9092
-      group-id: ${spring.application.name}
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 topic:
   name:
     consumer: doc

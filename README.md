@@ -1,6 +1,6 @@
-# System Kilo Doc Rest
+# System Kilo Doc Aggregator
 
-This application serves as the restful services as part of the overall https://github.com/jvalentino/sys-kilo project as they relate to documents. For system level details, please see that location.
+This application serves as a means of listening for events as they related to the document domain, and turning those events into a Cassandra based model as  part of the overall https://github.com/jvalentino/sys-kilo project as they relate to documents. For system level details, please see that location.
 
 Prerequisites
 
@@ -132,7 +132,7 @@ If it worked you can access it via http://localhost:8080/swagger-ui/index.html
 
 ## Runtime Validation
 
-It is then recommended you run thus application on port 8080, which can be done in two ways:
+It is then recommended you run thus application on port 8081, which can be done in two ways:
 
 **IDE**
 
@@ -141,56 +141,24 @@ It is then recommended you run thus application on port 8080, which can be done 
 **Command-Line**
 
 ```bash
-java -jar --server.port=8080 build/libs/sys-kilo-doc-rest-0.0.1.jar
+java -jar --server.port=8081 build/libs/sys-kilo-doc-aggregator-0.0.1.jar
 ```
 
-### Swagger UI
 
-The Swagger UI can then be accessed via http://localhost:8080/swagger-ui/index.html
 
-![01](./wiki/swagger-1.png)
+Since this application only executes when an event is dispatched, you have to first dispatch an event. This can be done by running:
 
-You are then going to want to set the authorization code to `123`, otherwise access will be defined. That is our default/testing API Key.
+```bash
+./create-event.sh
+```
 
-![01](wiki/authorize.png)
+This will cause a DocDto event to be placed on the `doc` topic:
 
-![01](wiki/xauth.png)
+![01](wiki/kafka-1.png)
 
-### /doc/versions/{docId}
+...which gets processed and turned into Cassandra records:
 
-Used for listing the versions of a specific document.
-
-![01](wiki/swagger-2.png)
-
-### /doc/version/download/{docVersionId}
-
-Used for downloading a specific document version.
-
-![01](wiki/swagger-3.png)
-
-### /doc/all
-
-User for listing al documents.
-
-![01](wiki/swagger-4.png)
-
-### /doc/upload/user/{userId}
-
-Used for uploading a new document, where that given document becomes the first version of it. The input is a file name and then a byte array: src/test/resources/doc-dto.json
-
-![01](wiki/swagger-5.png)
-
-### /doc/version/new/{docId}/user/{userId}
-
-This uploads a new version to an existing document. The input is a file name and then a byte array: src/test/resources/doc-dto.json
-
-![01](wiki/swagger-6.png)
-
-### /doc/populate
-
-Due to the actual data population happening in a different application entirely, I added this endpoint to automatically populate the database with a document and two versions:
-
-![01](wiki/swagger-7.png)
+![01](wiki/cassandra-1.png)
 
 
 
@@ -246,11 +214,11 @@ This script consists of the following:
 ```bash
 #!/bin/bash
 
-NAME=sys-kilo-doc-rest
+NAME=sys-kilo-doc-aggregator
 VERSION=latest
-HELM_NAME=sys-doc-rest
+HELM_NAME=sys-doc-aggregator
 
-helm delete $HELM_NAME || true
+helm delete --wait $HELM_NAME || true
 minikube image rm $NAME:$VERSION
 rm -rf ~/.minikube/cache/images/arm64/$NAME_$VERSION || true
 docker build --no-cache . -t $NAME
@@ -269,7 +237,7 @@ The container for running this application consists of two parts:
 ```docker
 FROM openjdk:11
 WORKDIR .
-COPY build/libs/sys-kilo-doc-rest-0.0.1.jar /usr/local/sys-kilo-doc-rest-0.0.1.jar
+COPY build/libs/sys-kilo-doc-aggregator-0.0.1.jar /usr/local/sys-kilo-doc-aggregator-0.0.1.jar
 EXPOSE 8080
 COPY config/docker/start.sh /usr/local/start.sh
 
@@ -294,7 +262,7 @@ ENTRYPOINT ["/usr/local/start.sh"]
     Match *
     Host elasticsearch-master
     Port 9200
-    Index sys-doc-rest
+    Index sys-doc-aggregator
     Suppress_Type_Name On
 ```
 
@@ -312,346 +280,11 @@ cd /opt/fluent-bit/bin
 cd /usr/local
 java -jar \
 	-Dspring.data.cassandra.contact-points=cassandra \
-	-Dkafka.bootstrap-servers=kafka:9092 \
-	sys-kilo-doc-rest-0.0.1.jar
+	-Dspring.data.cassandra.password=cassandra \
+	-Dspring.data.cassandra.username=cassandra \
+	-Dspring.kafka.bootstrap-servers=kafka-service:9094 \
+	sys-kilo-doc-aggregator-0.0.1.jar
 ```
-
-## OpenAPI
-
-> The OpenAPI Specification, previously known as the Swagger Specification, is a specification for a machine-readable interface definition language for describing, producing, consuming and visualizing RESTful web services
-
-- https://en.wikipedia.org/wiki/OpenAPI_Specification
-
-The only reason this was more than once step, is because I had overridden the default JSON converter to handle hibernate entities, which messed it up for Swagger. The result was a series of workarounds.
-
-### build.gradle
-
-```groovy
-implementation 'org.springdoc:springdoc-openapi-ui:1.6.15'
-implementation 'org.springdoc:springdoc-openapi-webmvc-core:1.6.15'
-implementation 'org.springdoc:springdoc-openapi-groovy:1.6.15'
-```
-
-### application.properties
-
-```properties
-springdoc.swagger-ui.url=/v3/api-docs.yaml
-```
-
-This is done to have Swagger use the YAML endpoint instead of the JSON one, because we busted the JSON endpoint with our Jackson magic.
-
-### UI
-
-The result of all this magic is that you can now get to http://localhost:8080/swagger-ui/index.html, and see:
-
-![01](wiki/swagger.png)
-
-## Resilience4j
-
-> Resilience4j is a lightweight fault tolerance library designed for functional programming. Resilience4j provides higher-order functions (decorators) to enhance any functional interface, lambda expression or method reference with a Circuit Breaker, Rate Limiter, Retry or Bulkhead. You can stack more than one decorator on any functional interface, lambda expression or method reference. The advantage is that you have the choice to select the decorators you need and nothing else.
-
-- https://resilience4j.readme.io/docs
-
-### build.gradle
-
-```groovy
-// Circuit Breaker (Hystrix Replacement)
-	implementation group: 'io.github.resilience4j', name: 'resilience4j-spring-boot2', version: '1.7.0'
-```
-
-### DocRest (Controller)
-
-```groovy
-@GetMapping('/doc/all')
-    @CircuitBreaker(name = 'DocAll')
-    DocListDto dashboard() {
-        DocListDto dashboard = new DocListDto()
-        dashboard.with {
-            documents = docService.allDocs()
-        }
-
-        dashboard
-    }
-    
-    //....
-```
-
-You want to annotate every endpoint with a name.
-
-### application.yml
-
-```yaml
-management:
-  health:
-    circuitbreakers:
-      enabled: 'true'
-    ratelimiters:
-      enabled: 'true'
-  endpoints:
-    web:
-      exposure:
-        include: '*'
-  endpoint:
-    health:
-      show-details: always
---- More stuff...
-resilience4j:
-  circuitbreaker:
-    instances:
-      DocAll:
-        registerHealthIndicator: true
-        ringBufferSizeInClosedState: 5
-        ringBufferSizeInHalfOpenState: 3
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-        maxRetryAttempts: 3
-        waitDuration: 5000
-      DocUpload:
-        registerHealthIndicator: true
-        ringBufferSizeInClosedState: 5
-        ringBufferSizeInHalfOpenState: 3
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-        maxRetryAttempts: 3
-        waitDuration: 5000
-      DocVersions:
-        registerHealthIndicator: true
-        ringBufferSizeInClosedState: 5
-        ringBufferSizeInHalfOpenState: 3
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-        maxRetryAttempts: 3
-        waitDuration: 5000
-      DocDownload:
-        registerHealthIndicator: true
-        ringBufferSizeInClosedState: 5
-        ringBufferSizeInHalfOpenState: 3
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-        maxRetryAttempts: 3
-        waitDuration: 5000
-      DocVersionNew:
-        registerHealthIndicator: true
-        ringBufferSizeInClosedState: 5
-        ringBufferSizeInHalfOpenState: 3
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-        maxRetryAttempts: 3
-        waitDuration: 5000
-```
-
-You then declare the settings for each endpoint.
-
-### /actuator/health
-
-```json
-{
-   "status":"UP",
-   "components":{
-      "circuitBreakers":{
-         "status":"UP",
-         "details":{
-            "DocVersionNew":{
-               "status":"UP",
-               "details":{
-                  "failureRate":"-1.0%",
-                  "failureRateThreshold":"50.0%",
-                  "slowCallRate":"-1.0%",
-                  "slowCallRateThreshold":"100.0%",
-                  "bufferedCalls":0,
-                  "slowCalls":0,
-                  "slowFailedCalls":0,
-                  "failedCalls":0,
-                  "notPermittedCalls":0,
-                  "state":"CLOSED"
-               }
-            },
-            "DocDownload":{
-               "status":"UP",
-               "details":{
-                  "failureRate":"-1.0%",
-                  "failureRateThreshold":"50.0%",
-                  "slowCallRate":"-1.0%",
-                  "slowCallRateThreshold":"100.0%",
-                  "bufferedCalls":0,
-                  "slowCalls":0,
-                  "slowFailedCalls":0,
-                  "failedCalls":0,
-                  "notPermittedCalls":0,
-                  "state":"CLOSED"
-               }
-            },
-            "DocVersions":{
-               "status":"UP",
-               "details":{
-                  "failureRate":"-1.0%",
-                  "failureRateThreshold":"50.0%",
-                  "slowCallRate":"-1.0%",
-                  "slowCallRateThreshold":"100.0%",
-                  "bufferedCalls":0,
-                  "slowCalls":0,
-                  "slowFailedCalls":0,
-                  "failedCalls":0,
-                  "notPermittedCalls":0,
-                  "state":"CLOSED"
-               }
-            },
-            "DocUpload":{
-               "status":"UP",
-               "details":{
-                  "failureRate":"-1.0%",
-                  "failureRateThreshold":"50.0%",
-                  "slowCallRate":"-1.0%",
-                  "slowCallRateThreshold":"100.0%",
-                  "bufferedCalls":0,
-                  "slowCalls":0,
-                  "slowFailedCalls":0,
-                  "failedCalls":0,
-                  "notPermittedCalls":0,
-                  "state":"CLOSED"
-               }
-            },
-            "DocAll":{
-               "status":"UP",
-               "details":{
-                  "failureRate":"-1.0%",
-                  "failureRateThreshold":"50.0%",
-                  "slowCallRate":"-1.0%",
-                  "slowCallRateThreshold":"100.0%",
-                  "bufferedCalls":0,
-                  "slowCalls":0,
-                  "slowFailedCalls":0,
-                  "failedCalls":0,
-                  "notPermittedCalls":0,
-                  "state":"CLOSED"
-               }
-            }
-         }
-      },
-      "db":{
-         "status":"UP",
-         "details":{
-            "database":"PostgreSQL",
-            "validationQuery":"isValid()"
-         }
-      },
-      "diskSpace":{
-         "status":"UP",
-         "details":{
-            "total":494384795648,
-            "free":356838473728,
-            "threshold":10485760,
-            "exists":true
-         }
-      },
-      "ping":{
-         "status":"UP"
-      },
-      "rateLimiters":{
-         "status":"UNKNOWN"
-      }
-   }
-}
-```
-
-## API Key Security
-
-Since this is an API intended to be called only by an authorized party, we need at least some basic security. In this case, I am using the concept of an API Key. Specifically, every request will be expected to require the HTTP Header of `X-Auth-Token` with the appropriate value, at least when calling the explicitly secure services under `/doc`.
-
-### SwaggerConfiguration
-
-```groovy
-@Configuration
-@CompileDynamic
-@SuppressWarnings(['DuplicateStringLiteral'])
-class SwaggerConfiguration {
-
-    @Value('${spring.application.name}')
-    String appName
-
-    // https://stackoverflow.com/questions/63671676/
-    // springdoc-openapi-ui-add-jwt-header-parameter-to-generated-swagger
-    @Bean
-    OpenAPI customOpenAPI() {
-        new OpenAPI()
-                .info(new Info().title(appName).version('1.0.0'))
-                .components(new Components()
-                        .addSecuritySchemes('X-Auth-Token', new SecurityScheme()
-                                .type(SecurityScheme.Type.APIKEY)
-                                .in(SecurityScheme.In.HEADER)
-                                .name('X-Auth-Token')))
-                .addSecurityItem(new SecurityRequirement().addList('X-Auth-Token'))
-    }
-
-}
-```
-
-First we have to tell Swagger to put an "Authorize" button in its user interface, that we can use to provide this X-Auth-Token with every request.
-
-![01](wiki/authorize.png)
-
-![01](wiki/xauth.png)
-
-### SecurityFilter
-
-```groovy
-@Service
-@Configurable
-@CompileDynamic
-@Slf4j
-@SuppressWarnings(['UnnecessaryGetter'])
-class SecurityFilter extends GenericFilterBean {
-
-    @Value('${management.apikey}')
-    String apikey
-
-    @Value('${management.securePath}')
-    String securePath
-
-    void doFilter(
-            ServletRequest request,
-            ServletResponse response,
-            FilterChain chain) throws IOException, ServletException {
-        // pull the token out of the header
-        HttpServletRequest httpRequest = (HttpServletRequest) request
-        String token = httpRequest.getHeader('x-auth-token')
-        String pathInfo = httpRequest.getRequestURI()
-
-        if (!pathInfo.startsWith(securePath)) {
-            log.info("${pathInfo} is not secured")
-            chain.doFilter(request, response)
-            return
-        }
-
-        if (token != apikey) {
-            HttpServletResponse res = (HttpServletResponse) response
-            res.status = 401
-            return
-        }
-
-        chain.doFilter(request, response)
-    }
-
-}
-```
-
-Next we have to add an interceptor that gets called prior to every request. 
-
-- If that request is not /doc related, we ignore security
-- If that request is /doc related, we verify that it matches the expected key
-
-### application.properties
-
-```yaml
-spring:
-  application:
-    name: sys-juliet-rest-doc
-management:
-  apikey: 123
-  securePath: /doc
-```
-
-The involved properties were put in the application.properties, so that we can also change them at runtime from a deployment perspective.
 
 ## Cassandra
 
@@ -762,35 +395,48 @@ In order to run an integration test without it trying to connect to Cassandra, I
 ### application.yml
 
 ```yaml
-kafka:
-  bootstrap-servers: localhost:9092
-  producer:
-    client-id: ${spring.application.name}
-    key-serializer: org.apache.kafka.common.serialization.StringSerializer
-    value-serializer: org.apache.kafka.common.serialization.StringSerializer
+spring:
+  application:
+    name: sys-kilo-doc-aggregator
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: latest
+      group-id: ${spring.application.name}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 ```
 
-### DocProducer
+### DocListener
 
 ```groovy
-@Component
-class DocProducer {
+@Service
+class DocListener {
+
+    @Value('${topic.name.consumer')
+    String topicName
+
+    @Value('${spring.kafka.consumer.group-id}')
+    String groupId
 
     @Autowired
-    KafkaTemplate<String, String> kafkaTemplate
+    DocService docService
 
-    void produce(DocDto doc) {
-        kafkaTemplate.send('doc', doc.docId, toJson(doc))
+    @KafkaListener(topics = '${topic.name.consumer}', groupId = '${spring.kafka.consumer.group-id}')
+    DocPair consume(ConsumerRecord<String, String> payload) {
+        String json = payload.value()
+        DocDto doc = toObject(json, DocDto)
+        docService.process(doc)
     }
 
-    String toJson(Object obj) {
-        new ObjectMapper().writeValueAsString(obj)
+    Object toObject(String json, Class clazz) {
+        new ObjectMapper().readValue(json, clazz)
     }
 
 }
 ```
 
-This just injects the KafkaTemplate into a reusable components, that turns an object into JSON on the doc topic, but that also uses the ID as the key.
+This listens to the doc topic, turns events from their JSON into the DocDto object, and then passes it to the DocService to handle creating or updating records in Cassandra.
 
 ### Kafka IDE
 

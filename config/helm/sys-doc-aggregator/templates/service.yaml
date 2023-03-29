@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "sys-doc-rest.fullname" . }}
+  name: {{ include "sys-doc-aggregator.fullname" . }}
   labels:
-    {{- include "sys-doc-rest.labels" . | nindent 4 }}
+    {{- include "sys-doc-aggregator.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -12,4 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "sys-doc-rest.selectorLabels" . | nindent 4 }}
+    {{- include "sys-doc-aggregator.selectorLabels" . | nindent 4 }}

@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "sys-doc-rest.fullname" . }}
+  name: {{ include "sys-doc-aggregator.fullname" . }}
   labels:
-    {{- include "sys-doc-rest.labels" . | nindent 4 }}
+    {{- include "sys-doc-aggregator.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "sys-doc-rest.selectorLabels" . | nindent 6 }}
+      {{- include "sys-doc-aggregator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -18,13 +18,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "sys-doc-rest.selectorLabels" . | nindent 8 }}
+        {{- include "sys-doc-aggregator.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "sys-doc-rest.serviceAccountName" . }}
+      serviceAccountName: {{ include "sys-doc-aggregator.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

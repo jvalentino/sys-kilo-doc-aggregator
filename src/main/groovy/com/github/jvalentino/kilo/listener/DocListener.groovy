@@ -22,13 +22,13 @@ class DocListener {
     @Value('${topic.name.consumer')
     String topicName
 
-    @Value('${server.kafka.consumer.group-id}')
+    @Value('${spring.kafka.consumer.group-id}')
     String groupId
 
     @Autowired
     DocService docService
 
-    @KafkaListener(topics = '${topic.name.consumer}', groupId = '${server.kafka.consumer.group-id}')
+    @KafkaListener(topics = '${topic.name.consumer}', groupId = '${spring.kafka.consumer.group-id}')
     DocPair consume(ConsumerRecord<String, String> payload) {
         String json = payload.value()
         DocDto doc = toObject(json, DocDto)
